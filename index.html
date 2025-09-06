@@ -1,0 +1,2304 @@
+<!DOCTYPE html>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Aula</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+        .tab-active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .student-card {
+            transition: all 0.3s ease;
+        }
+        .student-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+        .present {
+            background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
+        }
+        .absent {
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+        }
+        .save-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #10b981;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 1000;
+        }
+        .save-indicator.show {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <!-- Save Indicator -->
+    <div id="saveIndicator" class="save-indicator">
+        ✓ Datos guardados automáticamente
+    </div>
+
+    <!-- Header -->
+    <div class="bg-white shadow-lg rounded-b-3xl p-6 mb-6">
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800">Control de Aula</h1>
+                <p class="text-gray-600" id="currentClassInfo">Selecciona una clase</p>
+            </div>
+            <div class="flex items-center gap-3 flex-wrap">
+                <div class="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-4 py-2 rounded-full">
+                    <span class="text-sm font-medium" id="currentDate"></span>
+                </div>
+                <button onclick="exportData()" class="bg-gradient-to-r from-green-500 to-teal-500 text-white px-3 py-2 rounded-full text-xs font-medium shadow-lg" title="Exportar datos">
+                    📥 Exportar
+                </button>
+                <button onclick="importData()" class="bg-gradient-to-r from-orange-500 to-red-500 text-white px-3 py-2 rounded-full text-xs font-medium shadow-lg" title="Importar datos">
+                    📤 Importar
+                </button>
+                <button onclick="importStudents()" class="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-3 py-2 rounded-full text-xs font-medium shadow-lg" title="Importar estudiantes">
+                    👥 Estudiantes
+                </button>
+            </div>
+        </div>
+        
+        <!-- Class selector -->
+        <div class="flex gap-3 items-center">
+            <select id="classSelect" onchange="switchClass()" class="flex-1 p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">-- Selecciona una clase --</option>
+            </select>
+            <button onclick="editCurrentClass()" id="editClassBtn" class="bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-4 py-3 rounded-xl text-sm font-medium shadow-lg whitespace-nowrap hidden">
+                ✏️ Editar
+            </button>
+            <button onclick="addClass()" class="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-3 rounded-xl text-sm font-medium shadow-lg whitespace-nowrap">
+                + Clase
+            </button>
+        </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="px-6 mb-6">
+        <div class="flex bg-white rounded-2xl p-2 shadow-md">
+            <button onclick="showTab('students')" id="studentsTab" class="flex-1 py-3 px-4 rounded-xl text-center font-medium transition-all tab-active">
+                👥 Estudiantes
+            </button>
+            <button onclick="showTab('attendance')" id="attendanceTab" class="flex-1 py-3 px-4 rounded-xl text-center font-medium transition-all text-gray-600">
+                ✅ Asistencia
+            </button>
+            <button onclick="showTab('activities')" id="activitiesTab" class="flex-1 py-3 px-4 rounded-xl text-center font-medium transition-all text-gray-600">
+                📚 Actividades
+            </button>
+            <button onclick="showTab('tasks')" id="tasksTab" class="flex-1 py-3 px-4 rounded-xl text-center font-medium transition-all text-gray-600">
+                📋 Tareas
+            </button>
+            <button onclick="showTab('grades')" id="gradesTab" class="flex-1 py-3 px-4 rounded-xl text-center font-medium transition-all text-gray-600">
+                📝 Notas
+            </button>
+            <button onclick="showTab('calendar')" id="calendarTab" class="flex-1 py-3 px-4 rounded-xl text-center font-medium transition-all text-gray-600">
+                📅 Calendario
+            </button>
+        </div>
+    </div>
+
+    <!-- Students Tab -->
+    <div id="studentsContent" class="px-6">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold text-gray-800">Lista de Estudiantes</h2>
+            <div class="flex gap-2">
+                <button onclick="importStudents()" class="bg-gradient-to-r from-blue-400 to-purple-500 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg">
+                    📋 Importar Lista
+                </button>
+                <button onclick="addStudent()" class="bg-gradient-to-r from-green-400 to-blue-500 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg">
+                    + Agregar
+                </button>
+            </div>
+        </div>
+        
+        <div id="studentsList" class="space-y-3">
+            <p class="text-gray-500 text-center py-8">Selecciona una clase para ver los estudiantes</p>
+        </div>
+    </div>
+
+    <!-- Attendance Tab -->
+    <div id="attendanceContent" class="px-6 hidden">
+        <div class="bg-white rounded-2xl p-6 shadow-lg mb-4">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">Registro de Asistencia</h2>
+            <div class="flex justify-between text-sm text-gray-600 mb-4">
+                <span>Presentes: <span id="presentCount" class="font-bold text-green-600">0</span></span>
+                <span>Ausentes: <span id="absentCount" class="font-bold text-red-600">0</span></span>
+                <span>Total: <span id="totalCount" class="font-bold">0</span></span>
+            </div>
+        </div>
+        
+        <div id="attendanceList" class="space-y-3">
+            <p class="text-gray-500 text-center py-8">Selecciona una clase para ver la asistencia</p>
+        </div>
+    </div>
+
+    <!-- Activities Tab -->
+    <div id="activitiesContent" class="px-6 hidden">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold text-gray-800">Actividades del Día</h2>
+            <button onclick="addActivity()" class="bg-gradient-to-r from-purple-400 to-pink-500 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg">
+                + Nueva
+            </button>
+        </div>
+        
+        <div id="activitiesList" class="space-y-3">
+            <p class="text-gray-500 text-center py-8">Selecciona una clase para ver las actividades</p>
+        </div>
+    </div>
+
+    <!-- Tasks Tab -->
+    <div id="tasksContent" class="px-6 hidden">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold text-gray-800">Gestión de Tareas</h2>
+            <button onclick="addTask()" class="bg-gradient-to-r from-indigo-400 to-purple-500 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg">
+                + Nueva Tarea
+            </button>
+        </div>
+        
+        <!-- Evaluation selector for tasks -->
+        <div class="bg-white rounded-2xl p-4 shadow-lg mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Evaluación:</label>
+            <select id="taskEvaluationSelect" onchange="showEvaluationTasks()" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="">-- Selecciona una evaluación --</option>
+            </select>
+        </div>
+        
+        <!-- Tasks by category -->
+        <div id="tasksContainer" class="hidden">
+            <!-- Interpretation Tasks -->
+            <div class="bg-blue-50 rounded-2xl p-4 shadow-lg mb-4">
+                <h3 class="font-bold text-blue-800 mb-3 flex items-center gap-2">
+                    🎵 Interpretación Individual y Colectiva (30%)
+                    <button onclick="addTaskToCategory('interpretation')" class="text-xs bg-blue-500 text-white px-2 py-1 rounded-full ml-auto">+ Tarea</button>
+                </h3>
+                <div id="interpretationTasks" class="space-y-2">
+                    <!-- Tasks will be populated here -->
+                </div>
+            </div>
+            
+            <!-- Tests Tasks -->
+            <div class="bg-green-50 rounded-2xl p-4 shadow-lg mb-4">
+                <h3 class="font-bold text-green-800 mb-3 flex items-center gap-2">
+                    📋 Pruebas Objetivas (20%)
+                    <button onclick="addTaskToCategory('tests')" class="text-xs bg-green-500 text-white px-2 py-1 rounded-full ml-auto">+ Tarea</button>
+                </h3>
+                <div id="testsTasks" class="space-y-2">
+                    <!-- Tasks will be populated here -->
+                </div>
+            </div>
+            
+            <!-- Homework Tasks -->
+            <div class="bg-yellow-50 rounded-2xl p-4 shadow-lg mb-4">
+                <h3 class="font-bold text-yellow-800 mb-3 flex items-center gap-2">
+                    📚 Tareas de Clase (30%)
+                    <button onclick="addTaskToCategory('homework')" class="text-xs bg-yellow-500 text-white px-2 py-1 rounded-full ml-auto">+ Tarea</button>
+                </h3>
+                <div id="homeworkTasks" class="space-y-2">
+                    <!-- Tasks will be populated here -->
+                </div>
+            </div>
+            
+            <!-- Behavior Tasks -->
+            <div class="bg-purple-50 rounded-2xl p-4 shadow-lg mb-4">
+                <h3 class="font-bold text-purple-800 mb-3 flex items-center gap-2">
+                    🤝 Comportamiento y Actitud (10%)
+                    <button onclick="addTaskToCategory('behavior')" class="text-xs bg-purple-500 text-white px-2 py-1 rounded-full ml-auto">+ Tarea</button>
+                </h3>
+                <div id="behaviorTasks" class="space-y-2">
+                    <!-- Tasks will be populated here -->
+                </div>
+            </div>
+            
+            <!-- Material Tasks -->
+            <div class="bg-orange-50 rounded-2xl p-4 shadow-lg mb-4">
+                <h3 class="font-bold text-orange-800 mb-3 flex items-center gap-2">
+                    📖 Material de Clase (10%)
+                    <button onclick="addTaskToCategory('material')" class="text-xs bg-orange-500 text-white px-2 py-1 rounded-full ml-auto">+ Tarea</button>
+                </h3>
+                <div id="materialTasks" class="space-y-2">
+                    <!-- Tasks will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grades Tab -->
+    <div id="gradesContent" class="px-6 hidden">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold text-gray-800">Cuaderno de Evaluaciones</h2>
+            <button onclick="addEvaluation()" class="bg-gradient-to-r from-orange-400 to-red-500 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg">
+                + Evaluación
+            </button>
+        </div>
+        
+        <!-- Evaluation selector -->
+        <div class="bg-white rounded-2xl p-4 shadow-lg mb-4">
+            <div class="flex justify-between items-center mb-2">
+                <label class="block text-sm font-medium text-gray-700">Seleccionar Evaluación:</label>
+                <button onclick="editCurrentEvaluation()" id="editEvaluationBtn" class="text-blue-500 hover:bg-blue-50 px-3 py-1 rounded-full text-sm hidden">
+                    ✏️ Editar
+                </button>
+            </div>
+            <select id="evaluationSelect" onchange="showEvaluationGrades()" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500">
+                <option value="">-- Selecciona una evaluación --</option>
+            </select>
+        </div>
+        
+        <div id="gradesContainer" class="hidden">
+            <!-- Grade Categories Info -->
+            <div class="bg-white rounded-2xl p-4 shadow-lg mb-4">
+                <h3 class="font-bold text-gray-800 mb-3">Categorías de Evaluación</h3>
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
+                    <div class="bg-blue-50 p-3 rounded-lg">
+                        <div class="font-semibold text-blue-800">Interpretación</div>
+                        <div class="text-blue-600">30%</div>
+                        <div class="text-xs text-blue-500 mt-1">Individual y colectiva</div>
+                    </div>
+                    <div class="bg-green-50 p-3 rounded-lg">
+                        <div class="font-semibold text-green-800">Pruebas</div>
+                        <div class="text-green-600">20%</div>
+                        <div class="text-xs text-green-500 mt-1">Exámenes y exposiciones</div>
+                    </div>
+                    <div class="bg-yellow-50 p-3 rounded-lg">
+                        <div class="font-semibold text-yellow-800">Tareas de Clase</div>
+                        <div class="text-yellow-600">30%</div>
+                        <div class="text-xs text-yellow-500 mt-1">Trabajos y ejercicios</div>
+                    </div>
+                    <div class="bg-purple-50 p-3 rounded-lg">
+                        <div class="font-semibold text-purple-800">Comportamiento</div>
+                        <div class="text-purple-600">10%</div>
+                        <div class="text-xs text-purple-500 mt-1">Actitud en clase</div>
+                    </div>
+                    <div class="bg-orange-50 p-3 rounded-lg">
+                        <div class="font-semibold text-orange-800">Material</div>
+                        <div class="text-orange-600">10%</div>
+                        <div class="text-xs text-orange-500 mt-1">Cuaderno, flauta, libro</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl p-4 shadow-lg mb-4">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 id="selectedEvaluationTitle" class="font-bold text-gray-800"></h3>
+                    <div class="text-sm text-gray-600">
+                        Promedio: <span id="averageGrade" class="font-bold text-blue-600">0.0</span>
+                    </div>
+                </div>
+                <div class="text-sm text-gray-600 mb-3">
+                    <span>Aprobados: <span id="passedCount" class="font-bold text-green-600">0</span></span>
+                    <span class="ml-4">Reprobados: <span id="failedCount" class="font-bold text-red-600">0</span></span>
+                </div>
+            </div>
+            
+            <div id="gradesList" class="space-y-3">
+                <!-- Grades will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Calendar Tab -->
+    <div id="calendarContent" class="px-6 hidden">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold text-gray-800">Calendario Escolar</h2>
+            <button onclick="addEvent()" class="bg-gradient-to-r from-indigo-400 to-purple-500 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg">
+                + Evento
+            </button>
+        </div>
+        
+        <!-- Calendar Navigation -->
+        <div class="bg-white rounded-2xl p-4 shadow-lg mb-4">
+            <div class="flex justify-between items-center mb-4">
+                <button onclick="previousMonth()" class="p-2 hover:bg-gray-100 rounded-full">
+                    ← Anterior
+                </button>
+                <h3 id="currentMonth" class="text-lg font-bold text-gray-800"></h3>
+                <button onclick="nextMonth()" class="p-2 hover:bg-gray-100 rounded-full">
+                    Siguiente →
+                </button>
+            </div>
+            
+            <!-- Calendar Grid -->
+            <div class="grid grid-cols-7 gap-1 mb-2">
+                <div class="text-center text-sm font-medium text-gray-600 p-2">Dom</div>
+                <div class="text-center text-sm font-medium text-gray-600 p-2">Lun</div>
+                <div class="text-center text-sm font-medium text-gray-600 p-2">Mar</div>
+                <div class="text-center text-sm font-medium text-gray-600 p-2">Mié</div>
+                <div class="text-center text-sm font-medium text-gray-600 p-2">Jue</div>
+                <div class="text-center text-sm font-medium text-gray-600 p-2">Vie</div>
+                <div class="text-center text-sm font-medium text-gray-600 p-2">Sáb</div>
+            </div>
+            <div id="calendarGrid" class="grid grid-cols-7 gap-1">
+                <!-- Calendar days will be populated here -->
+            </div>
+        </div>
+        
+        <!-- Events List -->
+        <div class="bg-white rounded-2xl p-4 shadow-lg">
+            <h3 class="font-bold text-gray-800 mb-3">Eventos del Mes</h3>
+            <div id="eventsList" class="space-y-2">
+                <!-- Events will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Students Modal -->
+    <div id="importStudentsModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-6 z-50">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-lg">
+            <h3 class="text-lg font-bold mb-4">Importar Lista de Estudiantes</h3>
+            
+            <!-- Import Options -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Selecciona el método de importación:</label>
+                <div class="flex gap-4 mb-4">
+                    <label class="flex items-center">
+                        <input type="radio" name="importMethod" value="text" checked class="mr-2">
+                        <span class="text-sm">Escribir/Pegar nombres</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="radio" name="importMethod" value="file" class="mr-2">
+                        <span class="text-sm">Subir archivo</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Text Input Method -->
+            <div id="textImportMethod">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Escribe o pega los nombres (uno por línea):
+                </label>
+                <textarea id="studentsTextInput" placeholder="Ana García&#10;Carlos López&#10;María Rodríguez&#10;Juan Martínez" class="w-full p-3 border border-gray-300 rounded-xl mb-4 h-40 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+            </div>
+
+            <!-- File Input Method -->
+            <div id="fileImportMethod" class="hidden">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Selecciona un archivo de texto (.txt):
+                </label>
+                <input type="file" id="studentsFileInput" accept=".txt,.csv" class="w-full p-3 border border-gray-300 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <div class="text-xs text-gray-500 mb-4">
+                    <p><strong>Formato esperado:</strong></p>
+                    <p>• Un nombre por línea</p>
+                    <p>• Archivos .txt o .csv</p>
+                    <p>• Ejemplo: Ana García, Carlos López, etc.</p>
+                </div>
+            </div>
+
+            <!-- Preview -->
+            <div id="studentsPreview" class="hidden mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Vista previa:</label>
+                <div id="previewList" class="bg-gray-50 p-3 rounded-xl max-h-32 overflow-y-auto text-sm"></div>
+                <div class="text-xs text-gray-600 mt-2">
+                    <span id="previewCount">0</span> estudiantes encontrados
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <button onclick="previewStudents()" class="flex-1 bg-blue-500 text-white py-3 rounded-xl font-medium">Vista Previa</button>
+                <button onclick="confirmImportStudents()" id="confirmImportBtn" class="flex-1 bg-green-500 text-white py-3 rounded-xl font-medium hidden">Importar</button>
+                <button onclick="closeModal('importStudentsModal')" class="flex-1 bg-gray-300 text-gray-700 py-3 rounded-xl font-medium">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Student Modal -->
+    <div id="addStudentModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-6 z-50">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-md">
+            <h3 class="text-lg font-bold mb-4">Agregar Estudiante</h3>
+            <input type="text" id="studentName" placeholder="Nombre del estudiante" class="w-full p-3 border border-gray-300 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <div class="flex gap-3">
+                <button onclick="saveStudent()" class="flex-1 bg-blue-500 text-white py-3 rounded-xl font-medium">Guardar</button>
+                <button onclick="closeModal('addStudentModal')" class="flex-1 bg-gray-300 text-gray-700 py-3 rounded-xl font-medium">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Activity Modal -->
+    <div id="addActivityModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-6 z-50">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-md">
+            <h3 class="text-lg font-bold mb-4">Nueva Actividad</h3>
+            <input type="text" id="activityTitle" placeholder="Título de la actividad" class="w-full p-3 border border-gray-300 rounded-xl mb-3 focus:outline-none focus:ring-2 focus:ring-purple-500">
+            <textarea id="activityDescription" placeholder="Descripción" class="w-full p-3 border border-gray-300 rounded-xl mb-4 h-20 resize-none focus:outline-none focus:ring-2 focus:ring-purple-500"></textarea>
+            <div class="flex gap-3">
+                <button onclick="saveActivity()" class="flex-1 bg-purple-500 text-white py-3 rounded-xl font-medium">Guardar</button>
+                <button onclick="closeModal('addActivityModal')" class="flex-1 bg-gray-300 text-gray-700 py-3 rounded-xl font-medium">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Evaluation Modal -->
+    <div id="addEvaluationModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-6 z-50">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-md">
+            <h3 class="text-lg font-bold mb-4">Nueva Evaluación</h3>
+            <input type="text" id="evaluationName" placeholder="Nombre de la evaluación" class="w-full p-3 border border-gray-300 rounded-xl mb-3 focus:outline-none focus:ring-2 focus:ring-orange-500">
+            <input type="date" id="evaluationDate" class="w-full p-3 border border-gray-300 rounded-xl mb-3 focus:outline-none focus:ring-2 focus:ring-orange-500">
+            <input type="number" id="evaluationMaxScore" placeholder="Puntaje máximo" min="1" max="100" class="w-full p-3 border border-gray-300 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-orange-500">
+            <div class="flex gap-3">
+                <button onclick="saveEvaluation()" class="flex-1 bg-orange-500 text-white py-3 rounded-xl font-medium">Crear</button>
+                <button onclick="closeModal('addEvaluationModal')" class="flex-1 bg-gray-300 text-gray-700 py-3 rounded-xl font-medium">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Grade Modal -->
+    <div id="editGradeModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-6 z-50">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-lg">
+            <h3 class="text-lg font-bold mb-4">Editar Calificaciones</h3>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Estudiante:</label>
+                <span id="editGradeStudentName" class="text-gray-800 font-medium"></span>
+            </div>
+            
+            <!-- Grade Categories -->
+            <div class="space-y-4 mb-4">
+                <div class="bg-blue-50 p-3 rounded-lg">
+                    <label class="block text-sm font-semibold text-blue-800 mb-1">Interpretación Individual y Colectiva (30%)</label>
+                    <div class="text-xs text-blue-600 mb-2">
+                        • Tocar flauta • Cantar • Interpretación grupal • Expresión musical
+                    </div>
+                    <input type="number" id="interpretationGrade" placeholder="0-10" min="0" max="10" step="0.1" class="w-full p-2 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                
+                <div class="bg-green-50 p-3 rounded-lg">
+                    <label class="block text-sm font-semibold text-green-800 mb-1">Pruebas Objetivas (20%)</label>
+                    <div class="text-xs text-green-600 mb-2">
+                        • Exámenes escritos • Exposiciones • Evaluaciones teóricas • Presentaciones
+                    </div>
+                    <input type="number" id="testsGrade" placeholder="0-10" min="0" max="10" step="0.1" class="w-full p-2 border border-green-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                </div>
+                
+                <div class="bg-yellow-50 p-3 rounded-lg">
+                    <label class="block text-sm font-semibold text-yellow-800 mb-1">Tareas de Clase (30%)</label>
+                    <div class="text-xs text-yellow-600 mb-2">
+                        • Tareas para casa • Ejercicios en clase • Trabajos escritos • Investigaciones
+                    </div>
+                    <input type="number" id="homeworkGrade" placeholder="0-10" min="0" max="10" step="0.1" class="w-full p-2 border border-yellow-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                </div>
+                
+                <div class="bg-purple-50 p-3 rounded-lg">
+                    <label class="block text-sm font-semibold text-purple-800 mb-1">Comportamiento y Actitud (10%)</label>
+                    <div class="text-xs text-purple-600 mb-2">
+                        • Participación • Respeto • Puntualidad • Colaboración en grupo
+                    </div>
+                    <input type="number" id="behaviorGrade" placeholder="0-10" min="0" max="10" step="0.1" class="w-full p-2 border border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
+                </div>
+                
+                <div class="bg-orange-50 p-3 rounded-lg">
+                    <label class="block text-sm font-semibold text-orange-800 mb-1">Material de Clase (10%)</label>
+                    <div class="text-xs text-orange-600 mb-2">
+                        • Cuaderno completo • Flauta • Libro de música • Materiales solicitados
+                    </div>
+                    <input type="number" id="materialGrade" placeholder="0-10" min="0" max="10" step="0.1" class="w-full p-2 border border-orange-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500">
+                </div>
+            </div>
+            
+            <!-- Final Grade Display -->
+            <div class="bg-gray-50 p-3 rounded-lg mb-4">
+                <div class="flex justify-between items-center">
+                    <span class="font-semibold text-gray-800">Nota Final:</span>
+                    <span id="finalGradeDisplay" class="text-xl font-bold text-blue-600">0.0</span>
+                </div>
+            </div>
+            
+            <textarea id="editGradeNotes" placeholder="Observaciones (opcional)" class="w-full p-3 border border-gray-300 rounded-xl mb-4 h-20 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+            <div class="flex gap-3">
+                <button onclick="saveGrade()" class="flex-1 bg-blue-500 text-white py-3 rounded-xl font-medium">Guardar</button>
+                <button onclick="closeModal('editGradeModal')" class="flex-1 bg-gray-300 text-gray-700 py-3 rounded-xl font-medium">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Class Modal -->
+    <div id="addClassModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-6 z-50">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-md">
+            <h3 class="text-lg font-bold mb-4" id="classModalTitle">Nueva Clase</h3>
+            <input type="text" id="className" placeholder="Nombre de la materia" class="w-full p-3 border border-gray-300 rounded-xl mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <input type="text" id="classGrade" placeholder="Grado (ej: 3°A)" class="w-full p-3 border border-gray-300 rounded-xl mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <input type="text" id="classTeacher" placeholder="Profesor (opcional)" class="w-full p-3 border border-gray-300 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <div class="flex gap-3">
+                <button onclick="saveClass()" class="flex-1 bg-blue-500 text-white py-3 rounded-xl font-medium" id="saveClassBtn">Crear</button>
+                <button onclick="deleteClass()" class="bg-red-500 text-white py-3 px-4 rounded-xl font-medium hidden" id="deleteClassBtn">🗑️</button>
+                <button onclick="closeModal('addClassModal')" class="flex-1 bg-gray-300 text-gray-700 py-3 rounded-xl font-medium">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Student Modal -->
+    <div id="editStudentModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-6 z-50">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-md">
+            <h3 class="text-lg font-bold mb-4">Editar Estudiante</h3>
+            <input type="text" id="editStudentName" placeholder="Nombre del estudiante" class="w-full p-3 border border-gray-300 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <div class="flex gap-3">
+                <button onclick="saveEditStudent()" class="flex-1 bg-blue-500 text-white py-3 rounded-xl font-medium">Guardar</button>
+                <button onclick="closeModal('editStudentModal')" class="flex-1 bg-gray-300 text-gray-700 py-3 rounded-xl font-medium">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Activity Modal -->
+    <div id="editActivityModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-6 z-50">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-md">
+            <h3 class="text-lg font-bold mb-4">Editar Actividad</h3>
+            <input type="text" id="editActivityTitle" placeholder="Título de la actividad" class="w-full p-3 border border-gray-300 rounded-xl mb-3 focus:outline-none focus:ring-2 focus:ring-purple-500">
+            <textarea id="editActivityDescription" placeholder="Descripción" class="w-full p-3 border border-gray-300 rounded-xl mb-4 h-20 resize-none focus:outline-none focus:ring-2 focus:ring-purple-500"></textarea>
+            <div class="flex gap-3">
+                <button onclick="saveEditActivity()" class="flex-1 bg-purple-500 text-white py-3 rounded-xl font-medium">Guardar</button>
+                <button onclick="closeModal('editActivityModal')" class="flex-1 bg-gray-300 text-gray-700 py-3 rounded-xl font-medium">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Evaluation Modal -->
+    <div id="editEvaluationModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-6 z-50">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-md">
+            <h3 class="text-lg font-bold mb-4">Editar Evaluación</h3>
+            <input type="text" id="editEvaluationName" placeholder="Nombre de la evaluación" class="w-full p-3 border border-gray-300 rounded-xl mb-3 focus:outline-none focus:ring-2 focus:ring-orange-500">
+            <input type="date" id="editEvaluationDate" class="w-full p-3 border border-gray-300 rounded-xl mb-3 focus:outline-none focus:ring-2 focus:ring-orange-500">
+            <input type="number" id="editEvaluationMaxScore" placeholder="Puntaje máximo" min="1" max="100" class="w-full p-3 border border-gray-300 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-orange-500">
+            <div class="flex gap-3">
+                <button onclick="saveEditEvaluation()" class="flex-1 bg-orange-500 text-white py-3 rounded-xl font-medium">Guardar</button>
+                <button onclick="deleteEvaluation()" class="bg-red-500 text-white py-3 px-4 rounded-xl font-medium">🗑️</button>
+                <button onclick="closeModal('editEvaluationModal')" class="flex-1 bg-gray-300 text-gray-700 py-3 rounded-xl font-medium">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Task Modal -->
+    <div id="addTaskModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-6 z-50">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-md">
+            <h3 class="text-lg font-bold mb-4">Nueva Tarea</h3>
+            <input type="text" id="taskTitle" placeholder="Título de la tarea" class="w-full p-3 border border-gray-300 rounded-xl mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <select id="taskCategory" class="w-full p-3 border border-gray-300 rounded-xl mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="">-- Selecciona categoría --</option>
+                <option value="interpretation">🎵 Interpretación Individual y Colectiva</option>
+                <option value="tests">📋 Pruebas Objetivas</option>
+                <option value="homework">📚 Tareas de Clase</option>
+                <option value="behavior">🤝 Comportamiento y Actitud</option>
+                <option value="material">📖 Material de Clase</option>
+            </select>
+            <input type="date" id="taskDate" class="w-full p-3 border border-gray-300 rounded-xl mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <input type="number" id="taskMaxScore" placeholder="Puntuación máxima" min="1" max="10" step="0.1" class="w-full p-3 border border-gray-300 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <div class="flex gap-3">
+                <button onclick="saveTask()" class="flex-1 bg-indigo-500 text-white py-3 rounded-xl font-medium">Crear</button>
+                <button onclick="closeModal('addTaskModal')" class="flex-1 bg-gray-300 text-gray-700 py-3 rounded-xl font-medium">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grade Task Modal -->
+    <div id="gradeTaskModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-6 z-50">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <h3 class="text-lg font-bold mb-4" id="gradeTaskTitle">Calificar Tarea</h3>
+            
+            <!-- Task Info -->
+            <div class="bg-gray-50 p-3 rounded-lg mb-4">
+                <div class="font-medium" id="gradeTaskInfo"></div>
+                <div class="text-sm text-gray-600" id="gradeTaskCategory"></div>
+            </div>
+            
+            <!-- Students Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4" id="studentsGradeGrid">
+                <!-- Students will be populated here -->
+            </div>
+            
+            <div class="flex gap-3">
+                <button onclick="saveAllTaskGrades()" class="flex-1 bg-green-500 text-white py-3 rounded-xl font-medium">Guardar Todas</button>
+                <button onclick="closeModal('gradeTaskModal')" class="flex-1 bg-gray-300 text-gray-700 py-3 rounded-xl font-medium">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Task Modal -->
+    <div id="editTaskModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-6 z-50">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-md">
+            <h3 class="text-lg font-bold mb-4">Editar Tarea</h3>
+            <input type="text" id="editTaskTitle" placeholder="Título de la tarea" class="w-full p-3 border border-gray-300 rounded-xl mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <select id="editTaskCategory" class="w-full p-3 border border-gray-300 rounded-xl mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="interpretation">🎵 Interpretación Individual y Colectiva</option>
+                <option value="tests">📋 Pruebas Objetivas</option>
+                <option value="homework">📚 Tareas de Clase</option>
+                <option value="behavior">🤝 Comportamiento y Actitud</option>
+                <option value="material">📖 Material de Clase</option>
+            </select>
+            <input type="date" id="editTaskDate" class="w-full p-3 border border-gray-300 rounded-xl mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <input type="number" id="editTaskMaxScore" placeholder="Puntuación máxima" min="1" max="10" step="0.1" class="w-full p-3 border border-gray-300 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <div class="flex gap-3">
+                <button onclick="saveEditTask()" class="flex-1 bg-indigo-500 text-white py-3 rounded-xl font-medium">Guardar</button>
+                <button onclick="deleteTask()" class="bg-red-500 text-white py-3 px-4 rounded-xl font-medium">🗑️</button>
+                <button onclick="closeModal('editTaskModal')" class="flex-1 bg-gray-300 text-gray-700 py-3 rounded-xl font-medium">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Event Modal -->
+    <div id="addEventModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-6 z-50">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-md">
+            <h3 class="text-lg font-bold mb-4">Nuevo Evento</h3>
+            <input type="text" id="eventTitle" placeholder="Título del evento" class="w-full p-3 border border-gray-300 rounded-xl mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <input type="date" id="eventDate" class="w-full p-3 border border-gray-300 rounded-xl mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <select id="eventType" class="w-full p-3 border border-gray-300 rounded-xl mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="exam">Examen</option>
+                <option value="assignment">Tarea</option>
+                <option value="presentation">Presentación</option>
+                <option value="event">Evento Especial</option>
+                <option value="holiday">Feriado</option>
+            </select>
+            <textarea id="eventDescription" placeholder="Descripción (opcional)" class="w-full p-3 border border-gray-300 rounded-xl mb-4 h-20 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+            <div class="flex gap-3">
+                <button onclick="saveEvent()" class="flex-1 bg-indigo-500 text-white py-3 rounded-xl font-medium">Guardar</button>
+                <button onclick="closeModal('addEventModal')" class="flex-1 bg-gray-300 text-gray-700 py-3 rounded-xl font-medium">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Data Modal -->
+    <div id="importDataModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-6 z-50">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-md">
+            <h3 class="text-lg font-bold mb-4">Importar Datos</h3>
+            <p class="text-sm text-gray-600 mb-4">Selecciona un archivo de respaldo (.json) para restaurar tus datos:</p>
+            <input type="file" id="importFile" accept=".json" class="w-full p-3 border border-gray-300 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <div class="flex gap-3">
+                <button onclick="processImport()" class="flex-1 bg-blue-500 text-white py-3 rounded-xl font-medium">Importar</button>
+                <button onclick="closeModal('importDataModal')" class="flex-1 bg-gray-300 text-gray-700 py-3 rounded-xl font-medium">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data storage with default sample data
+        let classes = [
+            { id: 1, name: "Música", grade: "3°A", teacher: "Prof. García" },
+            { id: 2, name: "Música", grade: "4°B", teacher: "Prof. López" },
+            { id: 3, name: "Música", grade: "5°C", teacher: "Prof. Martínez" }
+        ];
+
+        let students = [
+            { id: 1, classId: 1, name: "Ana García", present: true },
+            { id: 2, classId: 1, name: "Carlos López", present: true },
+            { id: 3, classId: 1, name: "María Rodríguez", present: false },
+            { id: 4, classId: 1, name: "Juan Martínez", present: true },
+            { id: 5, classId: 2, name: "Sofia Hernández", present: true },
+            { id: 6, classId: 2, name: "Diego Ruiz", present: true },
+            { id: 7, classId: 3, name: "Lucia Torres", present: true },
+            { id: 8, classId: 3, name: "Miguel Santos", present: false }
+        ];
+
+        let activities = [
+            { id: 1, classId: 1, title: "Práctica de flauta", description: "Ejercicios de respiración y escalas", completed: false },
+            { id: 2, classId: 1, title: "Tarea para casa", description: "Estudiar canción del libro página 25", completed: true },
+            { id: 3, classId: 2, title: "Interpretación grupal", description: "Ensayo de la canción navideña", completed: false },
+            { id: 4, classId: 3, title: "Examen de teoría", description: "Figuras musicales y compases", completed: false }
+        ];
+
+        let evaluations = [
+            { id: 1, classId: 1, name: "Evaluación Parcial 1", date: "2024-01-15", maxScore: 10 },
+            { id: 2, classId: 1, name: "Interpretación Flauta", date: "2024-01-22", maxScore: 10 },
+            { id: 3, classId: 2, name: "Examen Teórico", date: "2024-01-20", maxScore: 10 },
+            { id: 4, classId: 3, name: "Evaluación Final", date: "2024-01-25", maxScore: 10 }
+        ];
+
+        let grades = [
+            { evaluationId: 1, studentId: 1, interpretation: 8.5, tests: 7.0, homework: 8.0, behavior: 9.0, material: 8.0, notes: "Excelente trabajo en interpretación" },
+            { evaluationId: 1, studentId: 2, interpretation: 7.0, tests: 6.5, homework: 7.5, behavior: 8.5, material: 7.5, notes: "Bien, pero puede mejorar en teoría" },
+            { evaluationId: 1, studentId: 3, interpretation: 6.0, tests: 5.5, homework: 6.5, behavior: 7.0, material: 6.5, notes: "Necesita traer más seguido la flauta" },
+            { evaluationId: 1, studentId: 4, interpretation: 8.0, tests: 7.5, homework: 8.5, behavior: 9.5, material: 8.5, notes: "Muy buena actitud y participación" }
+        ];
+
+        // Individual tasks for grading throughout the trimester
+        let tasks = [
+            { id: 1, classId: 1, evaluationId: 1, title: "Tarea: Escalas musicales", category: "homework", date: "2024-01-10", maxScore: 10 },
+            { id: 2, classId: 1, evaluationId: 1, title: "Interpretación: Canción navideña", category: "interpretation", date: "2024-01-12", maxScore: 10 },
+            { id: 3, classId: 1, evaluationId: 1, title: "Examen: Figuras musicales", category: "tests", date: "2024-01-15", maxScore: 10 },
+            { id: 4, classId: 1, evaluationId: 1, title: "Revisión: Cuaderno completo", category: "material", date: "2024-01-08", maxScore: 10 },
+            { id: 5, classId: 2, evaluationId: 3, title: "Práctica: Flauta dulce", category: "interpretation", date: "2024-01-18", maxScore: 10 }
+        ];
+
+        // Individual task grades
+        let taskGrades = [
+            { taskId: 1, studentId: 1, score: 8.5, notes: "Muy bien ejecutado" },
+            { taskId: 1, studentId: 2, score: 7.0, notes: "Puede mejorar" },
+            { taskId: 2, studentId: 1, score: 9.0, notes: "Excelente interpretación" },
+            { taskId: 3, studentId: 1, score: 7.5, notes: "Bien en teoría" },
+            { taskId: 4, studentId: 1, score: 8.0, notes: "Cuaderno ordenado" }
+        ];
+
+        let events = [
+            { id: 1, classId: 1, title: "Concierto Navideño", date: "2024-12-15", type: "event", description: "Presentación de villancicos" },
+            { id: 2, classId: 2, title: "Examen de Flauta", date: "2024-02-20", type: "exam", description: "Evaluación práctica individual" },
+            { id: 3, classId: null, title: "Día de la Música", date: "2024-11-22", type: "holiday", description: "Celebración escolar" }
+        ];
+
+        let currentClassId = null;
+        let currentEditingGrade = null;
+        let currentDate = new Date();
+        let currentMonth = currentDate.getMonth();
+        let currentYear = currentDate.getFullYear();
+
+        // Global variables for editing
+        let currentEditingClass = null;
+        let currentEditingStudent = null;
+        let currentEditingActivity = null;
+        let currentEditingEvaluation = null;
+        let currentEditingTask = null;
+        let currentGradingTask = null;
+
+        // Variables for student import
+        let previewedStudents = [];
+
+        // Data persistence functions
+        function saveData() {
+            const data = {
+                classes: classes,
+                students: students,
+                activities: activities,
+                evaluations: evaluations,
+                grades: grades,
+                events: events,
+                tasks: tasks,
+                taskGrades: taskGrades,
+                lastSaved: new Date().toISOString()
+            };
+            
+            try {
+                localStorage.setItem('controlAulaData', JSON.stringify(data));
+                showSaveIndicator();
+            } catch (error) {
+                console.error('Error saving data:', error);
+            }
+        }
+
+        function loadData() {
+            try {
+                const savedData = localStorage.getItem('controlAulaData');
+                if (savedData) {
+                    const data = JSON.parse(savedData);
+                    
+                    // Load all data arrays
+                    if (data.classes) classes = data.classes;
+                    if (data.students) students = data.students;
+                    if (data.activities) activities = data.activities;
+                    if (data.evaluations) evaluations = data.evaluations;
+                    if (data.grades) grades = data.grades;
+                    if (data.events) events = data.events;
+                    if (data.tasks) tasks = data.tasks;
+                    if (data.taskGrades) taskGrades = data.taskGrades;
+}
+            } catch (error) {
+                console.error('Error loading data:', error);
+            }
+        }
+
+        function showSaveIndicator() {
+            const indicator = document.getElementById('saveIndicator');
+            indicator.classList.add('show');
+            setTimeout(() => {
+                indicator.classList.remove('show');
+            }, 2000);
+        }
+
+        function exportData() {
+            const data = {
+                classes: classes,
+                students: students,
+                activities: activities,
+                evaluations: evaluations,
+                grades: grades,
+                events: events,
+                tasks: tasks,
+                taskGrades: taskGrades,
+                exportDate: new Date().toISOString(),
+                version: "1.0"
+            };
+            
+            const dataStr = JSON.stringify(data, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(dataBlob);
+            link.download = `control-aula-backup-${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+        }
+
+        function importData() {
+            document.getElementById('importDataModal').classList.remove('hidden');
+            document.getElementById('importDataModal').classList.add('flex');
+        }
+
+        function processImport() {
+            const fileInput = document.getElementById('importFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Por favor selecciona un archivo');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    
+                    // Validate data structure
+                    if (data.classes && data.students && data.activities && data.evaluations && data.grades && data.events) {
+                        // Confirm import
+                        if (confirm('¿Estás seguro de importar estos datos? Se reemplazarán todos los datos actuales.')) {
+                            classes = data.classes;
+                            students = data.students;
+                            activities = data.activities;
+                            evaluations = data.evaluations;
+                            grades = data.grades;
+                            events = data.events;
+                            tasks = data.tasks || [];
+                            taskGrades = data.taskGrades || [];
+                            
+                            saveData();
+                            
+                            // Reset current selections
+                            currentClassId = null;
+                            document.getElementById('classSelect').value = '';
+                            
+                            // Re-render everything
+                            renderClasses();
+                            switchClass();
+                            
+                            closeModal('importDataModal');
+                            alert('Datos importados exitosamente');
+                        }
+                    } else {
+                        alert('El archivo no tiene el formato correcto');
+                    }
+                } catch (error) {
+                    alert('Error al leer el archivo. Asegúrate de que sea un archivo válido de respaldo.');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // Student import functions
+        function importStudents() {
+            if (!currentClassId) {
+                alert('Por favor selecciona una clase primero');
+                return;
+            }
+            
+            // Reset form
+            document.getElementById('studentsTextInput').value = '';
+            document.getElementById('studentsFileInput').value = '';
+            document.getElementById('studentsPreview').classList.add('hidden');
+            document.getElementById('confirmImportBtn').classList.add('hidden');
+            previewedStudents = [];
+            
+            // Show text method by default
+            document.querySelector('input[name="importMethod"][value="text"]').checked = true;
+            toggleImportMethod();
+            
+            document.getElementById('importStudentsModal').classList.remove('hidden');
+            document.getElementById('importStudentsModal').classList.add('flex');
+            document.getElementById('studentsTextInput').focus();
+        }
+
+        function toggleImportMethod() {
+            const method = document.querySelector('input[name="importMethod"]:checked').value;
+            const textMethod = document.getElementById('textImportMethod');
+            const fileMethod = document.getElementById('fileImportMethod');
+            
+            if (method === 'text') {
+                textMethod.classList.remove('hidden');
+                fileMethod.classList.add('hidden');
+            } else {
+                textMethod.classList.add('hidden');
+                fileMethod.classList.remove('hidden');
+            }
+            
+            // Hide preview when switching methods
+            document.getElementById('studentsPreview').classList.add('hidden');
+            document.getElementById('confirmImportBtn').classList.add('hidden');
+        }
+
+        function previewStudents() {
+            const method = document.querySelector('input[name="importMethod"]:checked').value;
+            
+            if (method === 'text') {
+                previewFromText();
+            } else {
+                previewFromFile();
+            }
+        }
+
+        function previewFromText() {
+            const text = document.getElementById('studentsTextInput').value.trim();
+            if (!text) {
+                alert('Por favor escribe o pega los nombres de los estudiantes');
+                return;
+            }
+            
+            // Split by lines and clean up
+            const names = text.split('\n')
+                .map(name => name.trim())
+                .filter(name => name.length > 0)
+                .filter((name, index, arr) => arr.indexOf(name) === index); // Remove duplicates
+            
+            if (names.length === 0) {
+                alert('No se encontraron nombres válidos');
+                return;
+            }
+            
+            showPreview(names);
+        }
+
+        function previewFromFile() {
+            const fileInput = document.getElementById('studentsFileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Por favor selecciona un archivo');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                
+                // Handle different file formats
+                let names = [];
+                
+                if (file.name.endsWith('.csv')) {
+                    // Handle CSV - split by commas or semicolons, then by lines
+                    names = text.split(/[,;\n]/)
+                        .map(name => name.trim().replace(/"/g, ''))
+                        .filter(name => name.length > 0);
+                } else {
+                    // Handle TXT - split by lines
+                    names = text.split('\n')
+                        .map(name => name.trim())
+                        .filter(name => name.length > 0);
+                }
+                
+                // Remove duplicates
+                names = names.filter((name, index, arr) => arr.indexOf(name) === index);
+                
+                if (names.length === 0) {
+                    alert('No se encontraron nombres válidos en el archivo');
+                    return;
+                }
+                
+                showPreview(names);
+            };
+            
+            reader.readAsText(file);
+        }
+
+        function showPreview(names) {
+            previewedStudents = names;
+            
+            const previewList = document.getElementById('previewList');
+            const previewCount = document.getElementById('previewCount');
+            
+            previewList.innerHTML = names.map(name => `<div class="py-1">• ${name}</div>`).join('');
+            previewCount.textContent = names.length;
+            
+            document.getElementById('studentsPreview').classList.remove('hidden');
+            document.getElementById('confirmImportBtn').classList.remove('hidden');
+        }
+
+        function confirmImportStudents() {
+            if (previewedStudents.length === 0) {
+                alert('No hay estudiantes para importar');
+                return;
+            }
+            
+            // Check for existing students
+            const existingNames = students
+                .filter(s => s.classId === currentClassId)
+                .map(s => s.name.toLowerCase());
+            
+            const newStudents = previewedStudents.filter(name => 
+                !existingNames.includes(name.toLowerCase())
+            );
+            
+            const duplicates = previewedStudents.length - newStudents.length;
+            
+            let message = `Se importarán ${newStudents.length} estudiantes nuevos.`;
+            if (duplicates > 0) {
+                message += `\n${duplicates} estudiantes ya existen y se omitirán.`;
+            }
+            message += '\n\n¿Continuar?';
+            
+            if (confirm(message)) {
+                // Add new students
+                const maxId = Math.max(...students.map(s => s.id), 0);
+                
+                newStudents.forEach((name, index) => {
+                    students.push({
+                        id: maxId + index + 1,
+                        classId: currentClassId,
+                        name: name,
+                        present: true
+                    });
+                });
+                
+                saveData();
+                renderStudents();
+                renderAttendance();
+                
+                closeModal('importStudentsModal');
+                
+                alert(`¡Importación completada!\n${newStudents.length} estudiantes agregados.`);
+            }
+        }
+
+        // Add event listeners for import method radio buttons
+        document.addEventListener('DOMContentLoaded', function() {
+            const radioButtons = document.querySelectorAll('input[name="importMethod"]');
+            radioButtons.forEach(radio => {
+                radio.addEventListener('change', toggleImportMethod);
+            });
+        });
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', function() {
+            loadData();
+            updateDate();
+            renderClasses();
+            // Auto-select first class if available
+            if (classes.length > 0) {
+                document.getElementById('classSelect').value = classes[0].id;
+                switchClass();
+            }
+        });
+
+        function updateDate() {
+            const now = new Date();
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('currentDate').textContent = now.toLocaleDateString('es-ES', options);
+        }
+
+        function showTab(tabName) {
+            // Hide all content
+            const tabs = ['students', 'attendance', 'activities', 'tasks', 'grades', 'calendar'];
+            tabs.forEach(tab => {
+                document.getElementById(tab + 'Content').classList.add('hidden');
+                document.getElementById(tab + 'Tab').classList.remove('tab-active');
+                document.getElementById(tab + 'Tab').classList.add('text-gray-600');
+            });
+
+            // Show selected content and activate tab
+            document.getElementById(tabName + 'Content').classList.remove('hidden');
+            document.getElementById(tabName + 'Tab').classList.add('tab-active');
+            document.getElementById(tabName + 'Tab').classList.remove('text-gray-600');
+
+            // Initialize specific tabs
+            if (tabName === 'calendar') {
+                renderCalendar();
+            } else if (tabName === 'tasks') {
+                renderTaskEvaluations();
+            }
+        }
+
+        function renderClasses() {
+            const select = document.getElementById('classSelect');
+            select.innerHTML = '<option value="">-- Selecciona una clase --</option>';
+            classes.forEach(cls => {
+                select.innerHTML += `<option value="${cls.id}">${cls.name} - ${cls.grade}</option>`;
+            });
+        }
+
+        function switchClass() {
+            const selectValue = document.getElementById('classSelect').value;
+            currentClassId = selectValue ? parseInt(selectValue) : null;
+            
+            if (currentClassId) {
+                const selectedClass = classes.find(c => c.id === currentClassId);
+                if (selectedClass) {
+                    document.getElementById('currentClassInfo').textContent = `${selectedClass.name} - ${selectedClass.grade}`;
+                    document.getElementById('editClassBtn').classList.remove('hidden');
+                    
+                    // Render all sections
+                    renderStudents();
+                    renderAttendance();
+                    renderActivities();
+                    renderEvaluations();
+                    renderTaskEvaluations();
+                }
+            } else {
+                document.getElementById('currentClassInfo').textContent = 'Selecciona una clase';
+                document.getElementById('editClassBtn').classList.add('hidden');
+                
+                // Clear all content
+                document.getElementById('studentsList').innerHTML = '<p class="text-gray-500 text-center py-8">Selecciona una clase para ver los estudiantes</p>';
+                document.getElementById('attendanceList').innerHTML = '<p class="text-gray-500 text-center py-8">Selecciona una clase para ver la asistencia</p>';
+                document.getElementById('activitiesList').innerHTML = '<p class="text-gray-500 text-center py-8">Selecciona una clase para ver las actividades</p>';
+                document.getElementById('gradesContainer').classList.add('hidden');
+                document.getElementById('evaluationSelect').innerHTML = '<option value="">-- Selecciona una evaluación --</option>';
+                document.getElementById('editEvaluationBtn').classList.add('hidden');
+            }
+        }
+
+        function renderStudents() {
+            const container = document.getElementById('studentsList');
+            
+            if (!currentClassId) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-8">Selecciona una clase para ver los estudiantes</p>';
+                return;
+            }
+            
+            const classStudents = students.filter(s => s.classId === currentClassId);
+            
+            if (classStudents.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8">
+                        <p class="text-gray-500 mb-4">No hay estudiantes en esta clase</p>
+                        <div class="flex gap-3 justify-center">
+                            <button onclick="importStudents()" class="bg-gradient-to-r from-blue-400 to-purple-500 text-white px-6 py-3 rounded-full font-medium shadow-lg">
+                                📋 Importar Lista
+                            </button>
+                            <button onclick="addStudent()" class="bg-gradient-to-r from-green-400 to-blue-500 text-white px-6 py-3 rounded-full font-medium shadow-lg">
+                                + Agregar Individual
+                            </button>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = classStudents.map(student => `
+                <div class="bg-white rounded-2xl p-4 shadow-md student-card">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
+                                ${student.name.charAt(0)}
+                            </div>
+                            <span class="font-medium text-gray-800">${student.name}</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="editStudent(${student.id})" class="text-blue-500 hover:bg-blue-50 p-2 rounded-full">
+                                ✏️
+                            </button>
+                            <button onclick="removeStudent(${student.id})" class="text-red-500 hover:bg-red-50 p-2 rounded-full">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderAttendance() {
+            if (!currentClassId) return;
+            
+            const container = document.getElementById('attendanceList');
+            const classStudents = students.filter(s => s.classId === currentClassId);
+            const presentCount = classStudents.filter(s => s.present).length;
+            const absentCount = classStudents.filter(s => !s.present).length;
+            
+            document.getElementById('presentCount').textContent = presentCount;
+            document.getElementById('absentCount').textContent = absentCount;
+            document.getElementById('totalCount').textContent = classStudents.length;
+
+            if (classStudents.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-8">No hay estudiantes en esta clase</p>';
+                return;
+            }
+
+            container.innerHTML = classStudents.map(student => `
+                <div class="bg-white rounded-2xl p-4 shadow-md student-card ${student.present ? 'present' : 'absent'}">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-white bg-opacity-30 rounded-full flex items-center justify-center text-gray-800 font-bold">
+                                ${student.name.charAt(0)}
+                            </div>
+                            <span class="font-medium text-gray-800">${student.name}</span>
+                        </div>
+                        <button onclick="toggleAttendance(${student.id})" class="px-4 py-2 rounded-full text-sm font-medium ${student.present ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}">
+                            ${student.present ? 'Presente' : 'Ausente'}
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderActivities() {
+            const container = document.getElementById('activitiesList');
+            
+            if (!currentClassId) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-8">Selecciona una clase para ver las actividades</p>';
+                return;
+            }
+            
+            const classActivities = activities.filter(a => a.classId === currentClassId);
+            
+            if (classActivities.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8">
+                        <p class="text-gray-500 mb-4">No hay actividades para esta clase</p>
+                        <button onclick="addActivity()" class="bg-gradient-to-r from-purple-400 to-pink-500 text-white px-6 py-3 rounded-full font-medium shadow-lg">
+                            + Crear primera actividad
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = classActivities.map(activity => `
+                <div class="bg-white rounded-2xl p-4 shadow-md student-card">
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1">
+                            <h3 class="font-bold text-gray-800 mb-2 ${activity.completed ? 'line-through text-gray-500' : ''}">${activity.title}</h3>
+                            <p class="text-gray-600 text-sm ${activity.completed ? 'line-through' : ''}">${activity.description}</p>
+                        </div>
+                        <div class="flex gap-2 ml-3">
+                            <button onclick="toggleActivity(${activity.id})" class="px-3 py-1 rounded-full text-xs font-medium ${activity.completed ? 'bg-green-500 text-white' : 'bg-yellow-500 text-white'}">
+                                ${activity.completed ? '✓' : '⏳'}
+                            </button>
+                            <button onclick="editActivity(${activity.id})" class="text-blue-500 hover:bg-blue-50 p-1 rounded-full text-sm">
+                                ✏️
+                            </button>
+                            <button onclick="removeActivity(${activity.id})" class="text-red-500 hover:bg-red-50 p-1 rounded-full text-sm">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderEvaluations() {
+            const select = document.getElementById('evaluationSelect');
+            select.innerHTML = '<option value="">-- Selecciona una evaluación --</option>';
+            
+            if (!currentClassId) {
+                return;
+            }
+            
+            const classEvaluations = evaluations.filter(e => e.classId === currentClassId);
+            classEvaluations.forEach(evaluation => {
+                select.innerHTML += `<option value="${evaluation.id}">${evaluation.name} (${evaluation.date})</option>`;
+            });
+            
+            // If no evaluations exist, show a helpful message
+            if (classEvaluations.length === 0) {
+                select.innerHTML += '<option value="" disabled>No hay evaluaciones - Crea una nueva</option>';
+            }
+        }
+
+        function showEvaluationGrades() {
+            const evaluationId = parseInt(document.getElementById('evaluationSelect').value);
+            if (!evaluationId) {
+                document.getElementById('gradesContainer').classList.add('hidden');
+                document.getElementById('editEvaluationBtn').classList.add('hidden');
+                return;
+            }
+
+            const evaluation = evaluations.find(e => e.id === evaluationId);
+            const evaluationGrades = grades.filter(g => g.evaluationId === evaluationId);
+            
+            document.getElementById('selectedEvaluationTitle').textContent = evaluation.name;
+            document.getElementById('gradesContainer').classList.remove('hidden');
+            document.getElementById('editEvaluationBtn').classList.remove('hidden');
+
+            // Calculate statistics
+            const finalScores = evaluationGrades.map(g => {
+                return (g.interpretation || 0) * 0.3 + (g.tests || 0) * 0.2 + (g.homework || 0) * 0.3 + (g.behavior || 0) * 0.1 + (g.material || 0) * 0.1;
+            });
+            
+            const average = finalScores.length > 0 ? (finalScores.reduce((a, b) => a + b, 0) / finalScores.length).toFixed(1) : 0;
+            const passed = finalScores.filter(score => score >= 6.0).length;
+            const failed = finalScores.length - passed;
+
+            document.getElementById('averageGrade').textContent = average;
+            document.getElementById('passedCount').textContent = passed;
+            document.getElementById('failedCount').textContent = failed;
+
+            renderGradesList(evaluationId);
+        }
+
+        function renderGradesList(evaluationId) {
+            const container = document.getElementById('gradesList');
+            const classStudents = students.filter(s => s.classId === currentClassId);
+            
+            container.innerHTML = classStudents.map(student => {
+                const grade = grades.find(g => g.evaluationId === evaluationId && g.studentId === student.id);
+                let finalScore = 0;
+                
+                if (grade) {
+                    // Calculate weighted final score (total 100% as per your requirements)
+                    finalScore = (
+                        (grade.interpretation || 0) * 0.3 +
+                        (grade.tests || 0) * 0.2 +
+                        (grade.homework || 0) * 0.3 +
+                        (grade.behavior || 0) * 0.1 +
+                        (grade.material || 0) * 0.1
+                    );
+                }
+                
+                const displayScore = finalScore.toFixed(1);
+                const status = finalScore > 0 ? (finalScore >= 6.0 ? 'Aprobado' : 'Reprobado') : 'Sin calificar';
+                const statusColor = finalScore > 0 ? (finalScore >= 6.0 ? 'text-green-600' : 'text-red-600') : 'text-gray-500';
+
+                return `
+                    <div class="bg-white rounded-2xl p-4 shadow-md student-card">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 bg-gradient-to-r from-orange-400 to-red-500 rounded-full flex items-center justify-center text-white font-bold">
+                                    ${student.name.charAt(0)}
+                                </div>
+                                <div>
+                                    <span class="font-medium text-gray-800">${student.name}</span>
+                                    <div class="text-sm text-gray-600">
+                                        ${finalScore > 0 ? `${displayScore}/10` : 'Sin calificar'}
+                                    </div>
+                                    ${grade ? `
+                                        <div class="text-xs text-gray-500 mt-1">
+                                            Int: ${grade.interpretation || 0} | Pru: ${grade.tests || 0} | Tar: ${grade.homework || 0} | Com: ${grade.behavior || 0} | Mat: ${grade.material || 0}
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-sm font-medium ${statusColor}">${status}</div>
+                                <button onclick="editGrade(${evaluationId}, ${student.id})" class="text-blue-500 hover:bg-blue-50 px-3 py-1 rounded-full text-sm mt-1">
+                                    ${finalScore > 0 ? 'Editar' : 'Calificar'}
+                                </button>
+                            </div>
+                        </div>
+                        ${grade && grade.notes ? `<div class="mt-2 text-sm text-gray-600 italic">"${grade.notes}"</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Modal and form functions
+        function addStudent() {
+            if (!currentClassId) {
+                alert('Por favor selecciona una clase primero');
+                return;
+            }
+            document.getElementById('addStudentModal').classList.remove('hidden');
+            document.getElementById('addStudentModal').classList.add('flex');
+            document.getElementById('studentName').focus();
+        }
+
+        function saveStudent() {
+            const name = document.getElementById('studentName').value.trim();
+            if (name) {
+                const newId = Math.max(...students.map(s => s.id), 0) + 1;
+                students.push({ id: newId, classId: currentClassId, name: name, present: true });
+                document.getElementById('studentName').value = '';
+                closeModal('addStudentModal');
+                renderStudents();
+                renderAttendance();
+                saveData();
+            }
+        }
+
+        function editStudent(studentId) {
+            const student = students.find(s => s.id === studentId);
+            currentEditingStudent = student;
+            
+            document.getElementById('editStudentName').value = student.name;
+            document.getElementById('editStudentModal').classList.remove('hidden');
+            document.getElementById('editStudentModal').classList.add('flex');
+            document.getElementById('editStudentName').focus();
+        }
+
+        function saveEditStudent() {
+            if (!currentEditingStudent) return;
+            
+            const name = document.getElementById('editStudentName').value.trim();
+            if (name) {
+                currentEditingStudent.name = name;
+                closeModal('editStudentModal');
+                renderStudents();
+                renderAttendance();
+                if (document.getElementById('gradesContainer').classList.contains('hidden') === false) {
+                    showEvaluationGrades();
+                }
+                saveData();
+            }
+        }
+
+        function removeStudent(id) {
+            if (confirm('¿Estás seguro de eliminar este estudiante?')) {
+                students = students.filter(s => s.id !== id);
+                grades = grades.filter(g => g.studentId !== id);
+                renderStudents();
+                renderAttendance();
+                if (document.getElementById('gradesContainer').classList.contains('hidden') === false) {
+                    showEvaluationGrades();
+                }
+                saveData();
+            }
+        }
+
+        function toggleAttendance(id) {
+            const student = students.find(s => s.id === id);
+            if (student) {
+                student.present = !student.present;
+                renderAttendance();
+                saveData();
+            }
+        }
+
+        function addActivity() {
+            if (!currentClassId) {
+                alert('Por favor selecciona una clase primero');
+                return;
+            }
+            document.getElementById('addActivityModal').classList.remove('hidden');
+            document.getElementById('addActivityModal').classList.add('flex');
+            document.getElementById('activityTitle').focus();
+        }
+
+        function saveActivity() {
+            const title = document.getElementById('activityTitle').value.trim();
+            const description = document.getElementById('activityDescription').value.trim();
+            if (title) {
+                const newId = Math.max(...activities.map(a => a.id), 0) + 1;
+                activities.push({ id: newId, classId: currentClassId, title: title, description: description || 'Sin descripción', completed: false });
+                document.getElementById('activityTitle').value = '';
+                document.getElementById('activityDescription').value = '';
+                closeModal('addActivityModal');
+                renderActivities();
+                saveData();
+            }
+        }
+
+        function editActivity(activityId) {
+            const activity = activities.find(a => a.id === activityId);
+            currentEditingActivity = activity;
+            
+            document.getElementById('editActivityTitle').value = activity.title;
+            document.getElementById('editActivityDescription').value = activity.description;
+            document.getElementById('editActivityModal').classList.remove('hidden');
+            document.getElementById('editActivityModal').classList.add('flex');
+            document.getElementById('editActivityTitle').focus();
+        }
+
+        function saveEditActivity() {
+            if (!currentEditingActivity) return;
+            
+            const title = document.getElementById('editActivityTitle').value.trim();
+            const description = document.getElementById('editActivityDescription').value.trim();
+            
+            if (title) {
+                currentEditingActivity.title = title;
+                currentEditingActivity.description = description || 'Sin descripción';
+                closeModal('editActivityModal');
+                renderActivities();
+                saveData();
+            }
+        }
+
+        function toggleActivity(id) {
+            const activity = activities.find(a => a.id === id);
+            if (activity) {
+                activity.completed = !activity.completed;
+                renderActivities();
+                saveData();
+            }
+        }
+
+        function removeActivity(id) {
+            if (confirm('¿Estás seguro de eliminar esta actividad?')) {
+                activities = activities.filter(a => a.id !== id);
+                renderActivities();
+                saveData();
+            }
+        }
+
+        function addEvaluation() {
+            if (!currentClassId) {
+                alert('Por favor selecciona una clase primero');
+                return;
+            }
+            document.getElementById('evaluationDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('addEvaluationModal').classList.remove('hidden');
+            document.getElementById('addEvaluationModal').classList.add('flex');
+            document.getElementById('evaluationName').focus();
+        }
+
+        function saveEvaluation() {
+            const name = document.getElementById('evaluationName').value.trim();
+            const date = document.getElementById('evaluationDate').value;
+            const maxScore = parseInt(document.getElementById('evaluationMaxScore').value);
+            
+            if (name && date && maxScore) {
+                const newId = Math.max(...evaluations.map(e => e.id), 0) + 1;
+                evaluations.push({ id: newId, classId: currentClassId, name: name, date: date, maxScore: maxScore });
+                
+                // Clear form
+                document.getElementById('evaluationName').value = '';
+                document.getElementById('evaluationDate').value = '';
+                document.getElementById('evaluationMaxScore').value = '';
+                
+                closeModal('addEvaluationModal');
+                renderEvaluations();
+                saveData();
+            }
+        }
+
+        function editCurrentEvaluation() {
+            const evaluationId = parseInt(document.getElementById('evaluationSelect').value);
+            if (!evaluationId) return;
+            
+            const evaluation = evaluations.find(e => e.id === evaluationId);
+            currentEditingEvaluation = evaluation;
+            
+            document.getElementById('editEvaluationName').value = evaluation.name;
+            document.getElementById('editEvaluationDate').value = evaluation.date;
+            document.getElementById('editEvaluationMaxScore').value = evaluation.maxScore;
+            
+            document.getElementById('editEvaluationModal').classList.remove('hidden');
+            document.getElementById('editEvaluationModal').classList.add('flex');
+            document.getElementById('editEvaluationName').focus();
+        }
+
+        function saveEditEvaluation() {
+            if (!currentEditingEvaluation) return;
+            
+            const name = document.getElementById('editEvaluationName').value.trim();
+            const date = document.getElementById('editEvaluationDate').value;
+            const maxScore = parseInt(document.getElementById('editEvaluationMaxScore').value);
+            
+            if (name && date && maxScore) {
+                currentEditingEvaluation.name = name;
+                currentEditingEvaluation.date = date;
+                currentEditingEvaluation.maxScore = maxScore;
+                
+                closeModal('editEvaluationModal');
+                renderEvaluations();
+                showEvaluationGrades();
+                saveData();
+            }
+        }
+
+        function deleteEvaluation() {
+            if (!currentEditingEvaluation) return;
+            
+            if (confirm('¿Estás seguro de eliminar esta evaluación? Se perderán todas las notas asociadas.')) {
+                const evaluationId = currentEditingEvaluation.id;
+                
+                evaluations = evaluations.filter(e => e.id !== evaluationId);
+                grades = grades.filter(g => g.evaluationId !== evaluationId);
+                
+                closeModal('editEvaluationModal');
+                renderEvaluations();
+                document.getElementById('gradesContainer').classList.add('hidden');
+                document.getElementById('editEvaluationBtn').classList.add('hidden');
+                saveData();
+            }
+        }
+
+        function editGrade(evaluationId, studentId) {
+            const student = students.find(s => s.id === studentId);
+            const grade = grades.find(g => g.evaluationId === evaluationId && g.studentId === studentId);
+            
+            currentEditingGrade = { evaluationId, studentId };
+            
+            document.getElementById('editGradeStudentName').textContent = student.name;
+            document.getElementById('interpretationGrade').value = grade ? grade.interpretation || '' : '';
+            document.getElementById('testsGrade').value = grade ? grade.tests || '' : '';
+            document.getElementById('homeworkGrade').value = grade ? grade.homework || '' : '';
+            document.getElementById('behaviorGrade').value = grade ? grade.behavior || '' : '';
+            document.getElementById('materialGrade').value = grade ? grade.material || '' : '';
+            document.getElementById('editGradeNotes').value = grade ? grade.notes || '' : '';
+            
+            // Add event listeners to calculate final grade
+            ['interpretationGrade', 'testsGrade', 'homeworkGrade', 'behaviorGrade', 'materialGrade'].forEach(id => {
+                const element = document.getElementById(id);
+                element.removeEventListener('input', calculateFinalGrade);
+                element.addEventListener('input', calculateFinalGrade);
+            });
+            
+            calculateFinalGrade();
+            
+            document.getElementById('editGradeModal').classList.remove('hidden');
+            document.getElementById('editGradeModal').classList.add('flex');
+            document.getElementById('interpretationGrade').focus();
+        }
+
+        function calculateFinalGrade() {
+            const interpretation = parseFloat(document.getElementById('interpretationGrade').value) || 0;
+            const tests = parseFloat(document.getElementById('testsGrade').value) || 0;
+            const homework = parseFloat(document.getElementById('homeworkGrade').value) || 0;
+            const behavior = parseFloat(document.getElementById('behaviorGrade').value) || 0;
+            const material = parseFloat(document.getElementById('materialGrade').value) || 0;
+            
+            const finalGrade = (interpretation * 0.3 + tests * 0.2 + homework * 0.3 + behavior * 0.1 + material * 0.1).toFixed(1);
+            document.getElementById('finalGradeDisplay').textContent = finalGrade;
+        }
+
+        function saveGrade() {
+            if (!currentEditingGrade) return;
+            
+            const interpretation = parseFloat(document.getElementById('interpretationGrade').value) || 0;
+            const tests = parseFloat(document.getElementById('testsGrade').value) || 0;
+            const homework = parseFloat(document.getElementById('homeworkGrade').value) || 0;
+            const behavior = parseFloat(document.getElementById('behaviorGrade').value) || 0;
+            const material = parseFloat(document.getElementById('materialGrade').value) || 0;
+            const notes = document.getElementById('editGradeNotes').value.trim();
+            
+            const existingGradeIndex = grades.findIndex(g => 
+                g.evaluationId === currentEditingGrade.evaluationId && 
+                g.studentId === currentEditingGrade.studentId
+            );
+            
+            const gradeData = {
+                evaluationId: currentEditingGrade.evaluationId,
+                studentId: currentEditingGrade.studentId,
+                interpretation: interpretation,
+                tests: tests,
+                homework: homework,
+                behavior: behavior,
+                material: material,
+                notes: notes
+            };
+            
+            if (existingGradeIndex >= 0) {
+                grades[existingGradeIndex] = gradeData;
+            } else {
+                grades.push(gradeData);
+            }
+            
+            closeModal('editGradeModal');
+            showEvaluationGrades();
+            currentEditingGrade = null;
+            saveData();
+        }
+
+        function addClass() {
+            currentEditingClass = null;
+            document.getElementById('classModalTitle').textContent = 'Nueva Clase';
+            document.getElementById('saveClassBtn').textContent = 'Crear';
+            document.getElementById('deleteClassBtn').classList.add('hidden');
+            document.getElementById('className').value = '';
+            document.getElementById('classGrade').value = '';
+            document.getElementById('classTeacher').value = '';
+            
+            document.getElementById('addClassModal').classList.remove('hidden');
+            document.getElementById('addClassModal').classList.add('flex');
+            document.getElementById('className').focus();
+        }
+
+        function editCurrentClass() {
+            if (!currentClassId) return;
+            
+            const cls = classes.find(c => c.id === currentClassId);
+            currentEditingClass = cls;
+            
+            document.getElementById('classModalTitle').textContent = 'Editar Clase';
+            document.getElementById('saveClassBtn').textContent = 'Guardar';
+            document.getElementById('deleteClassBtn').classList.remove('hidden');
+            document.getElementById('className').value = cls.name;
+            document.getElementById('classGrade').value = cls.grade;
+            document.getElementById('classTeacher').value = cls.teacher;
+            
+            document.getElementById('addClassModal').classList.remove('hidden');
+            document.getElementById('addClassModal').classList.add('flex');
+            document.getElementById('className').focus();
+        }
+
+        function saveClass() {
+            const name = document.getElementById('className').value.trim();
+            const grade = document.getElementById('classGrade').value.trim();
+            const teacher = document.getElementById('classTeacher').value.trim();
+            
+            if (name && grade) {
+                if (currentEditingClass) {
+                    currentEditingClass.name = name;
+                    currentEditingClass.grade = grade;
+                    currentEditingClass.teacher = teacher || 'Sin asignar';
+                } else {
+                    const newId = Math.max(...classes.map(c => c.id), 0) + 1;
+                    classes.push({ id: newId, name: name, grade: grade, teacher: teacher || 'Sin asignar' });
+                }
+                
+                closeModal('addClassModal');
+                renderClasses();
+                if (currentEditingClass) {
+                    switchClass();
+                }
+                saveData();
+            }
+        }
+
+        function deleteClass() {
+            if (!currentEditingClass) return;
+            
+            if (confirm('¿Estás seguro de eliminar esta clase? Se perderán todos los datos asociados.')) {
+                const classId = currentEditingClass.id;
+                
+                classes = classes.filter(c => c.id !== classId);
+                students = students.filter(s => s.classId !== classId);
+                activities = activities.filter(a => a.classId !== classId);
+                const deletedEvaluations = evaluations.filter(e => e.classId === classId);
+                evaluations = evaluations.filter(e => e.classId !== classId);
+                deletedEvaluations.forEach(eval => {
+                    grades = grades.filter(g => g.evaluationId !== eval.id);
+                });
+                events = events.filter(e => e.classId !== classId);
+                
+                closeModal('addClassModal');
+                renderClasses();
+                
+                if (currentClassId === classId) {
+                    currentClassId = null;
+                    document.getElementById('classSelect').value = '';
+                    switchClass();
+                }
+                saveData();
+            }
+        }
+
+        // Calendar functions
+        function renderCalendar() {
+            const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+            
+            document.getElementById('currentMonth').textContent = `${monthNames[currentMonth]} ${currentYear}`;
+            
+            const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+            const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+            
+            const calendarGrid = document.getElementById('calendarGrid');
+            calendarGrid.innerHTML = '';
+            
+            // Empty cells for days before the first day of the month
+            for (let i = 0; i < firstDay; i++) {
+                calendarGrid.innerHTML += '<div class="p-2"></div>';
+            }
+            
+            // Days of the month
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const dayEvents = events.filter(e => e.date === dateStr && (e.classId === currentClassId || e.classId === null));
+                const hasEvents = dayEvents.length > 0;
+                const isToday = new Date().toDateString() === new Date(currentYear, currentMonth, day).toDateString();
+                
+                calendarGrid.innerHTML += `
+                    <div class="p-2 border border-gray-200 min-h-[60px] ${isToday ? 'bg-blue-100' : 'bg-white'} ${hasEvents ? 'bg-yellow-50' : ''} hover:bg-gray-50 cursor-pointer" onclick="showDayEvents('${dateStr}')">
+                        <div class="font-medium text-sm">${day}</div>
+                        ${hasEvents ? '<div class="w-2 h-2 bg-blue-500 rounded-full mt-1"></div>' : ''}
+                    </div>
+                `;
+            }
+            
+            renderEventsList();
+        }
+
+        function previousMonth() {
+            currentMonth--;
+            if (currentMonth < 0) {
+                currentMonth = 11;
+                currentYear--;
+            }
+            renderCalendar();
+        }
+
+        function nextMonth() {
+            currentMonth++;
+            if (currentMonth > 11) {
+                currentMonth = 0;
+                currentYear++;
+            }
+            renderCalendar();
+        }
+
+        function renderEventsList() {
+            const container = document.getElementById('eventsList');
+            const monthEvents = events.filter(e => {
+                const eventDate = new Date(e.date);
+                return eventDate.getMonth() === currentMonth && 
+                       eventDate.getFullYear() === currentYear &&
+                       (e.classId === currentClassId || e.classId === null);
+            });
+            
+            if (monthEvents.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-4">No hay eventos este mes</p>';
+                return;
+            }
+            
+            const eventTypeColors = {
+                exam: 'bg-red-100 text-red-800',
+                assignment: 'bg-blue-100 text-blue-800',
+                presentation: 'bg-green-100 text-green-800',
+                event: 'bg-purple-100 text-purple-800',
+                holiday: 'bg-yellow-100 text-yellow-800'
+            };
+            
+            const eventTypeNames = {
+                exam: 'Examen',
+                assignment: 'Tarea',
+                presentation: 'Presentación',
+                event: 'Evento',
+                holiday: 'Feriado'
+            };
+            
+            container.innerHTML = monthEvents.map(event => `
+                <div class="flex items-center justify-between p-3 bg-white rounded-lg border">
+                    <div class="flex items-center gap-3">
+                        <span class="px-2 py-1 rounded-full text-xs font-medium ${eventTypeColors[event.type] || 'bg-gray-100 text-gray-800'}">
+                            ${eventTypeNames[event.type] || event.type}
+                        </span>
+                        <div>
+                            <div class="font-medium">${event.title}</div>
+                            <div class="text-sm text-gray-600">${new Date(event.date).toLocaleDateString('es-ES')}</div>
+                        </div>
+                    </div>
+                    <button onclick="removeEvent(${event.id})" class="text-red-500 hover:bg-red-50 p-1 rounded-full">
+                        🗑️
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function addEvent() {
+            document.getElementById('eventDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('addEventModal').classList.remove('hidden');
+            document.getElementById('addEventModal').classList.add('flex');
+            document.getElementById('eventTitle').focus();
+        }
+
+        function saveEvent() {
+            const title = document.getElementById('eventTitle').value.trim();
+            const date = document.getElementById('eventDate').value;
+            const type = document.getElementById('eventType').value;
+            const description = document.getElementById('eventDescription').value.trim();
+            
+            if (title && date) {
+                const newId = Math.max(...events.map(e => e.id), 0) + 1;
+                events.push({ 
+                    id: newId, 
+                    classId: currentClassId, 
+                    title: title, 
+                    date: date, 
+                    type: type, 
+                    description: description 
+                });
+                
+                // Clear form
+                document.getElementById('eventTitle').value = '';
+                document.getElementById('eventDate').value = '';
+                document.getElementById('eventDescription').value = '';
+                
+                closeModal('addEventModal');
+                renderCalendar();
+                saveData();
+            }
+        }
+
+        function removeEvent(eventId) {
+            if (confirm('¿Estás seguro de eliminar este evento?')) {
+                events = events.filter(e => e.id !== eventId);
+                renderCalendar();
+                saveData();
+            }
+        }
+
+        function showDayEvents(dateStr) {
+            const dayEvents = events.filter(e => e.date === dateStr && (e.classId === currentClassId || e.classId === null));
+            if (dayEvents.length > 0) {
+                const eventTypeNames = {
+                    exam: 'Examen',
+                    assignment: 'Tarea',
+                    presentation: 'Presentación',
+                    event: 'Evento',
+                    holiday: 'Feriado'
+                };
+                alert(`Eventos del ${new Date(dateStr).toLocaleDateString('es-ES')}:\n\n${dayEvents.map(e => `• ${e.title} (${eventTypeNames[e.type] || e.type})`).join('\n')}`);
+            }
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+            document.getElementById(modalId).classList.remove('flex');
+        }
+
+        // Task Management Functions
+        function renderTaskEvaluations() {
+            const select = document.getElementById('taskEvaluationSelect');
+            select.innerHTML = '<option value="">-- Selecciona una evaluación --</option>';
+            
+            if (!currentClassId) {
+                return;
+            }
+            
+            const classEvaluations = evaluations.filter(e => e.classId === currentClassId);
+            classEvaluations.forEach(evaluation => {
+                select.innerHTML += `<option value="${evaluation.id}">${evaluation.name} (${evaluation.date})</option>`;
+            });
+        }
+
+        function showEvaluationTasks() {
+            const evaluationId = parseInt(document.getElementById('taskEvaluationSelect').value);
+            if (!evaluationId) {
+                document.getElementById('tasksContainer').classList.add('hidden');
+                return;
+            }
+
+            document.getElementById('tasksContainer').classList.remove('hidden');
+            renderTasksByCategory(evaluationId);
+        }
+
+        function renderTasksByCategory(evaluationId) {
+            const categories = ['interpretation', 'tests', 'homework', 'behavior', 'material'];
+            
+            categories.forEach(category => {
+                const container = document.getElementById(category + 'Tasks');
+                const categoryTasks = tasks.filter(t => t.evaluationId === evaluationId && t.category === category);
+                
+                if (categoryTasks.length === 0) {
+                    container.innerHTML = '<p class="text-gray-500 text-sm">No hay tareas en esta categoría</p>';
+                    return;
+                }
+                
+                container.innerHTML = categoryTasks.map(task => {
+                    const gradedCount = taskGrades.filter(tg => tg.taskId === task.id).length;
+                    const totalStudents = students.filter(s => s.classId === currentClassId).length;
+                    
+                    return `
+                        <div class="bg-white p-3 rounded-lg border border-gray-200">
+                            <div class="flex items-center justify-between">
+                                <div class="flex-1">
+                                    <h4 class="font-medium text-gray-800">${task.title}</h4>
+                                    <div class="text-sm text-gray-600">
+                                        ${new Date(task.date).toLocaleDateString('es-ES')} • Max: ${task.maxScore} pts
+                                    </div>
+                                    <div class="text-xs text-gray-500 mt-1">
+                                        Calificados: ${gradedCount}/${totalStudents}
+                                    </div>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button onclick="gradeTask(${task.id})" class="bg-green-500 text-white px-3 py-1 rounded-full text-xs font-medium">
+                                        📝 Calificar
+                                    </button>
+                                    <button onclick="editTask(${task.id})" class="text-blue-500 hover:bg-blue-50 p-1 rounded-full text-sm">
+                                        ✏️
+                                    </button>
+                                    <button onclick="removeTask(${task.id})" class="text-red-500 hover:bg-red-50 p-1 rounded-full text-sm">
+                                        🗑️
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            });
+        }
+
+        function addTask() {
+            if (!currentClassId) {
+                alert('Por favor selecciona una clase primero');
+                return;
+            }
+            
+            const evaluationId = parseInt(document.getElementById('taskEvaluationSelect').value);
+            if (!evaluationId) {
+                alert('Por favor selecciona una evaluación primero');
+                return;
+            }
+            
+            document.getElementById('taskDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('taskMaxScore').value = '10';
+            document.getElementById('addTaskModal').classList.remove('hidden');
+            document.getElementById('addTaskModal').classList.add('flex');
+            document.getElementById('taskTitle').focus();
+        }
+
+        function addTaskToCategory(category) {
+            if (!currentClassId) {
+                alert('Por favor selecciona una clase primero');
+                return;
+            }
+            
+            const evaluationId = parseInt(document.getElementById('taskEvaluationSelect').value);
+            if (!evaluationId) {
+                alert('Por favor selecciona una evaluación primero');
+                return;
+            }
+            
+            document.getElementById('taskCategory').value = category;
+            document.getElementById('taskDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('taskMaxScore').value = '10';
+            document.getElementById('addTaskModal').classList.remove('hidden');
+            document.getElementById('addTaskModal').classList.add('flex');
+            document.getElementById('taskTitle').focus();
+        }
+
+        function saveTask() {
+            const title = document.getElementById('taskTitle').value.trim();
+            const category = document.getElementById('taskCategory').value;
+            const date = document.getElementById('taskDate').value;
+            const maxScore = parseFloat(document.getElementById('taskMaxScore').value);
+            const evaluationId = parseInt(document.getElementById('taskEvaluationSelect').value);
+            
+            if (title && category && date && maxScore && evaluationId) {
+                const newId = Math.max(...tasks.map(t => t.id), 0) + 1;
+                tasks.push({
+                    id: newId,
+                    classId: currentClassId,
+                    evaluationId: evaluationId,
+                    title: title,
+                    category: category,
+                    date: date,
+                    maxScore: maxScore
+                });
+                
+                // Clear form
+                document.getElementById('taskTitle').value = '';
+                document.getElementById('taskCategory').value = '';
+                document.getElementById('taskDate').value = '';
+                document.getElementById('taskMaxScore').value = '';
+                
+                closeModal('addTaskModal');
+                renderTasksByCategory(evaluationId);
+                saveData();
+            }
+        }
+
+        function editTask(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            currentEditingTask = task;
+            
+            document.getElementById('editTaskTitle').value = task.title;
+            document.getElementById('editTaskCategory').value = task.category;
+            document.getElementById('editTaskDate').value = task.date;
+            document.getElementById('editTaskMaxScore').value = task.maxScore;
+            
+            document.getElementById('editTaskModal').classList.remove('hidden');
+            document.getElementById('editTaskModal').classList.add('flex');
+            document.getElementById('editTaskTitle').focus();
+        }
+
+        function saveEditTask() {
+            if (!currentEditingTask) return;
+            
+            const title = document.getElementById('editTaskTitle').value.trim();
+            const category = document.getElementById('editTaskCategory').value;
+            const date = document.getElementById('editTaskDate').value;
+            const maxScore = parseFloat(document.getElementById('editTaskMaxScore').value);
+            
+            if (title && category && date && maxScore) {
+                currentEditingTask.title = title;
+                currentEditingTask.category = category;
+                currentEditingTask.date = date;
+                currentEditingTask.maxScore = maxScore;
+                
+                closeModal('editTaskModal');
+                const evaluationId = parseInt(document.getElementById('taskEvaluationSelect').value);
+                renderTasksByCategory(evaluationId);
+                saveData();
+            }
+        }
+
+        function deleteTask() {
+            if (!currentEditingTask) return;
+            
+            if (confirm('¿Estás seguro de eliminar esta tarea? Se perderán todas las calificaciones asociadas.')) {
+                const taskId = currentEditingTask.id;
+                
+                tasks = tasks.filter(t => t.id !== taskId);
+                taskGrades = taskGrades.filter(tg => tg.taskId !== taskId);
+                
+                closeModal('editTaskModal');
+                const evaluationId = parseInt(document.getElementById('taskEvaluationSelect').value);
+                renderTasksByCategory(evaluationId);
+                saveData();
+            }
+        }
+
+        function removeTask(taskId) {
+            if (confirm('¿Estás seguro de eliminar esta tarea? Se perderán todas las calificaciones asociadas.')) {
+                tasks = tasks.filter(t => t.id !== taskId);
+                taskGrades = taskGrades.filter(tg => tg.taskId !== taskId);
+                
+                const evaluationId = parseInt(document.getElementById('taskEvaluationSelect').value);
+                renderTasksByCategory(evaluationId);
+                saveData();
+            }
+        }
+
+        function gradeTask(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            currentGradingTask = task;
+            
+            const categoryNames = {
+                interpretation: '🎵 Interpretación Individual y Colectiva',
+                tests: '📋 Pruebas Objetivas',
+                homework: '📚 Tareas de Clase',
+                behavior: '🤝 Comportamiento y Actitud',
+                material: '📖 Material de Clase'
+            };
+            
+            document.getElementById('gradeTaskTitle').textContent = `Calificar: ${task.title}`;
+            document.getElementById('gradeTaskInfo').textContent = `${task.title} - ${new Date(task.date).toLocaleDateString('es-ES')}`;
+            document.getElementById('gradeTaskCategory').textContent = `${categoryNames[task.category]} • Máximo: ${task.maxScore} puntos`;
+            
+            // Render students grid
+            const container = document.getElementById('studentsGradeGrid');
+            const classStudents = students.filter(s => s.classId === currentClassId);
+            
+            container.innerHTML = classStudents.map(student => {
+                const existingGrade = taskGrades.find(tg => tg.taskId === taskId && tg.studentId === student.id);
+                
+                return `
+                    <div class="bg-gray-50 p-3 rounded-lg">
+                        <div class="font-medium text-gray-800 mb-2">${student.name}</div>
+                        <div class="flex gap-2 mb-2">
+                            <input type="number" 
+                                   id="score_${student.id}" 
+                                   placeholder="0-${task.maxScore}" 
+                                   min="0" 
+                                   max="${task.maxScore}" 
+                                   step="0.1" 
+                                   value="${existingGrade ? existingGrade.score : ''}"
+                                   class="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+                        </div>
+                        <textarea id="notes_${student.id}" 
+                                  placeholder="Observaciones (opcional)" 
+                                  class="w-full p-2 border border-gray-300 rounded-lg text-sm h-16 resize-none focus:outline-none focus:ring-2 focus:ring-green-500">${existingGrade ? existingGrade.notes || '' : ''}</textarea>
+                    </div>
+                `;
+            }).join('');
+            
+            document.getElementById('gradeTaskModal').classList.remove('hidden');
+            document.getElementById('gradeTaskModal').classList.add('flex');
+        }
+
+        function saveAllTaskGrades() {
+            if (!currentGradingTask) return;
+            
+            const classStudents = students.filter(s => s.classId === currentClassId);
+            let savedCount = 0;
+            
+            classStudents.forEach(student => {
+                const scoreInput = document.getElementById(`score_${student.id}`);
+                const notesInput = document.getElementById(`notes_${student.id}`);
+                const score = parseFloat(scoreInput.value);
+                const notes = notesInput.value.trim();
+                
+                if (!isNaN(score) && score >= 0 && score <= currentGradingTask.maxScore) {
+                    // Remove existing grade if any
+                    taskGrades = taskGrades.filter(tg => !(tg.taskId === currentGradingTask.id && tg.studentId === student.id));
+                    
+                    // Add new grade
+                    taskGrades.push({
+                        taskId: currentGradingTask.id,
+                        studentId: student.id,
+                        score: score,
+                        notes: notes
+                    });
+                    
+                    savedCount++;
+                }
+            });
+            
+            closeModal('gradeTaskModal');
+            const evaluationId = parseInt(document.getElementById('taskEvaluationSelect').value);
+            renderTasksByCategory(evaluationId);
+            
+            // Update final grades calculation
+            updateFinalGradesFromTasks(evaluationId);
+            
+            saveData();
+            alert(`Se guardaron ${savedCount} calificaciones`);
+        }
+
+        function updateFinalGradesFromTasks(evaluationId) {
+            const classStudents = students.filter(s => s.classId === currentClassId);
+            const evaluationTasks = tasks.filter(t => t.evaluationId === evaluationId);
+            
+            classStudents.forEach(student => {
+                const categories = {
+                    interpretation: [],
+                    tests: [],
+                    homework: [],
+                    behavior: [],
+                    material: []
+                };
+                
+                // Group task grades by category
+                evaluationTasks.forEach(task => {
+                    const taskGrade = taskGrades.find(tg => tg.taskId === task.id && tg.studentId === student.id);
+                    if (taskGrade) {
+                        // Convert to 0-10 scale
+                        const normalizedScore = (taskGrade.score / task.maxScore) * 10;
+                        categories[task.category].push(normalizedScore);
+                    }
+                });
+                
+                // Calculate averages for each category
+                const categoryAverages = {};
+                Object.keys(categories).forEach(category => {
+                    if (categories[category].length > 0) {
+                        categoryAverages[category] = categories[category].reduce((a, b) => a + b, 0) / categories[category].length;
+                    }
+                });
+                
+                // Update or create final grade record
+                let gradeRecord = grades.find(g => g.evaluationId === evaluationId && g.studentId === student.id);
+                if (!gradeRecord) {
+                    gradeRecord = {
+                        evaluationId: evaluationId,
+                        studentId: student.id,
+                        interpretation: 0,
+                        tests: 0,
+                        homework: 0,
+                        behavior: 0,
+                        material: 0,
+                        notes: ''
+                    };
+                    grades.push(gradeRecord);
+                }
+                
+                // Update with calculated averages
+                Object.keys(categoryAverages).forEach(category => {
+                    gradeRecord[category] = Math.round(categoryAverages[category] * 10) / 10;
+                });
+            });
+        }
+
+        // Close modals when clicking outside
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('bg-black') && e.target.classList.contains('bg-opacity-50')) {
+                const modals = ['addStudentModal', 'addActivityModal', 'addEvaluationModal', 'editGradeModal', 
+                              'addClassModal', 'editStudentModal', 'editActivityModal', 'editEvaluationModal', 
+                              'addEventModal', 'importDataModal', 'importStudentsModal', 'addTaskModal', 
+                              'gradeTaskModal', 'editTaskModal'];
+                modals.forEach(modalId => {
+                    if (!document.getElementById(modalId).classList.contains('hidden')) {
+                        closeModal(modalId);
+                    }
+                });
+            }
+        });
+
+        // Handle Enter key in forms
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                const activeModal = document.querySelector('.fixed:not(.hidden)');
+                if (activeModal) {
+                    const saveButton = activeModal.querySelector('button[onclick*="save"]');
+                    if (saveButton) {
+                        saveButton.click();
+                    }
+                }
+            }
+        });
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97b038e206fb038d',t:'MTc1NzE4NTM2Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
